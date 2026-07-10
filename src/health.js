@@ -1,7 +1,4 @@
-// health.js — the equipment health model.
-// A sensor is 100% healthy at its baseline and 0% at its healthy_max limit.
-// Equipment health is the WEIGHTED AVERAGE of its scored sensors, where the
-// weights come from the admin-editable weight table.
+// health.js -- the equipment health model.
 
 export function sensorHealth(value, baseline, healthyMax) {
   if (healthyMax <= baseline) return 100
@@ -9,11 +6,8 @@ export function sensorHealth(value, baseline, healthyMax) {
   return Math.max(0, Math.min(100, 100 * (1 - dev)))
 }
 
-// sensors: [{ skey, value, baseline, healthy_max }]
-// weights: { skey: number }   (0 means "context only", not scored)
 export function equipmentHealth(sensors, weights) {
-  let num = 0
-  let den = 0
+  let num = 0, den = 0
   for (const s of sensors) {
     const w = weights[s.skey] ?? 0
     if (w <= 0) continue
@@ -29,7 +23,6 @@ export function statusOf(h) {
   return 'alarm'
 }
 
-// the scored sensor currently dragging health down the most
 export function worstSensor(sensors, weights) {
   let worst = null
   for (const s of sensors) {
@@ -45,16 +38,13 @@ export function avg(nums) {
   return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 100
 }
 
-// Compute the equipment health score at EVERY timestamp.
-// sensorsWithSeries: [{ skey, baseline, healthy_max, series: [{t, v}] }]
-// All sensors share the same aligned timestamps.
+// health at every timestamp (for the trend chart)
 export function healthSeries(sensorsWithSeries, weights) {
   const n = sensorsWithSeries[0]?.series.length || 0
   const out = []
   for (let i = 0; i < n; i++) {
     const snap = sensorsWithSeries.map((s) => ({
-      skey: s.skey, value: s.series[i].v,
-      baseline: s.baseline, healthy_max: s.healthy_max,
+      skey: s.skey, value: s.series[i].v, baseline: s.baseline, healthy_max: s.healthy_max,
     }))
     out.push({ t: sensorsWithSeries[0].series[i].t, health: equipmentHealth(snap, weights) })
   }

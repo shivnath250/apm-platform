@@ -2,11 +2,8 @@ import { useState } from 'react'
 import { statusOf, avg } from '../health.js'
 
 function Pill({ h }) {
-  const s = statusOf(h)
-  return <span className={`pill ${s}`}>{h.toFixed(0)}</span>
+  return <span className={`pill ${statusOf(h)}`}>{h.toFixed(0)}</span>
 }
-
-// average health over a set of equipment ids
 function rollup(eids, healthByEquip) {
   return avg(eids.map((id) => healthByEquip[id] ?? 100))
 }
@@ -29,38 +26,29 @@ export default function Sidebar({ tree, healthByEquip, selected, onSelectEquip, 
               <span className="meta">{p.cap}MW</span>
               <Pill h={rollup(p.eids, healthByEquip)} />
             </div>
-
             {pOpen && p.units.map((u) => {
-              const uKey = u.id
-              const uOpen = open[uKey]
+              const uOpen = open[u.id]
               return (
                 <div key={u.id} style={{ marginLeft: 14 }}>
-                  <div className="row" onClick={() => toggle(uKey)}>
+                  <div className="row" onClick={() => toggle(u.id)}>
                     <span className={`chev ${uOpen ? 'open' : ''}`}>▶</span>
                     <span className="name">{u.name}</span>
                     <Pill h={rollup(u.eids, healthByEquip)} />
                   </div>
-
                   {uOpen && u.systems.map((s) => {
-                    const sKey = s.id
-                    const sOpen = open[sKey]
+                    const sOpen = open[s.id]
                     return (
                       <div key={s.id} style={{ marginLeft: 14 }}>
-                        <div className="row" onClick={() => toggle(sKey)}>
+                        <div className="row" onClick={() => toggle(s.id)}>
                           <span className={`chev ${sOpen ? 'open' : ''}`}>▶</span>
                           <span className="name">{s.name}</span>
                           <Pill h={rollup(s.eids, healthByEquip)} />
                         </div>
-
                         {sOpen && s.equipment.map((e) => {
                           const h = healthByEquip[e.id] ?? 100
                           return (
-                            <div
-                              key={e.id}
-                              className={`row leaf ${selected === e.id ? 'selected' : ''}`}
-                              style={{ marginLeft: 26 }}
-                              onClick={() => onSelectEquip(e.id)}
-                            >
+                            <div key={e.id} className={`row leaf ${selected === e.id ? 'selected' : ''}`}
+                              style={{ marginLeft: 26 }} onClick={() => onSelectEquip(e.id)}>
                               <span className={`dot ${statusOf(h)}`} />
                               <span className="name">{e.name}</span>
                               <Pill h={h} />
