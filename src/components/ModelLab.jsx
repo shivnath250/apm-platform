@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { query } from '../db.js'
 
 const fmt = (epoch) => { const d = new Date(epoch * 1000); const z = (n) => String(n).padStart(2, '0'); return `${z(d.getMonth() + 1)}-${z(d.getDate())}` }
-const tipStyle = { background: '#161b22', border: '1px solid #263040', borderRadius: 6, fontSize: 12 }
+const tipStyle = { background: '#141b26', border: '1px solid #2c384a', borderRadius: 8, fontSize: 12, boxShadow: '0 8px 24px -10px rgba(0,0,0,0.7)' }
 
 export default function ModelLab({ db }) {
   const [results, setResults] = useState([])
@@ -58,18 +58,18 @@ export default function ModelLab({ db }) {
       <div className="chart-card wide">
         <ResponsiveContainer width="100%" height={320}>
           <LineChart data={bounds} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
-            <CartesianGrid stroke="#1f2733" vertical={false} />
-            <XAxis dataKey="t" tick={{ fill: '#5b6675', fontSize: 9 }} minTickGap={50} />
-            <YAxis tick={{ fill: '#5b6675', fontSize: 9 }} width={42} domain={['auto', 'auto']}
-              label={{ value: meta?.unit || '', angle: -90, position: 'insideLeft', fill: '#5b6675', fontSize: 10 }} />
+            <CartesianGrid stroke="#1c2534" vertical={false} />
+            <XAxis dataKey="t" tick={{ fill: '#5d6b7d', fontSize: 9 }} minTickGap={50} />
+            <YAxis tick={{ fill: '#5d6b7d', fontSize: 9 }} width={42} domain={['auto', 'auto']}
+              label={{ value: meta?.unit || '', angle: -90, position: 'insideLeft', fill: '#5d6b7d', fontSize: 10 }} />
             <Tooltip contentStyle={tipStyle} labelStyle={{ color: '#8b98a9' }} formatter={(v, n) => [Number(v).toFixed(2), n]} />
             <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
-            <Line dataKey="fixed_ucl" name="Fixed +3σ" stroke="#f85149" strokeWidth={1.2} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
-            <Line dataKey="fixed_lcl" name="Fixed -3σ" stroke="#f85149" strokeWidth={1.2} strokeDasharray="5 4" dot={false} legendType="none" isAnimationActive={false} />
-            <Line dataKey="smart_ucl" name="Smart +3σ" stroke="#21d4c4" strokeWidth={1.2} strokeDasharray="2 3" dot={false} isAnimationActive={false} />
-            <Line dataKey="smart_lcl" name="Smart -3σ" stroke="#21d4c4" strokeWidth={1.2} strokeDasharray="2 3" dot={false} legendType="none" isAnimationActive={false} />
-            <Line dataKey="predicted" name="Model prediction" stroke="#7aa2f7" strokeWidth={1.3} dot={false} isAnimationActive={false} />
-            <Line dataKey="actual" name="Actual" stroke="#e6edf3" strokeWidth={2} dot={false} isAnimationActive={false} />
+            <Line dataKey="fixed_ucl" name="Fixed +3σ" stroke="#ff5a5c" strokeWidth={1.2} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
+            <Line dataKey="fixed_lcl" name="Fixed -3σ" stroke="#ff5a5c" strokeWidth={1.2} strokeDasharray="5 4" dot={false} legendType="none" isAnimationActive={false} />
+            <Line dataKey="smart_ucl" name="Smart +3σ" stroke="#22e6d6" strokeWidth={1.2} strokeDasharray="2 3" dot={false} isAnimationActive={false} />
+            <Line dataKey="smart_lcl" name="Smart -3σ" stroke="#22e6d6" strokeWidth={1.2} strokeDasharray="2 3" dot={false} legendType="none" isAnimationActive={false} />
+            <Line dataKey="predicted" name="Model prediction" stroke="#ff3d9a" strokeWidth={1.3} dot={false} isAnimationActive={false} />
+            <Line dataKey="actual" name="Actual" stroke="#eaf1f8" strokeWidth={2} dot={false} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

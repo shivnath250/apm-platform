@@ -50,3 +50,54 @@ export function healthSeries(sensorsWithSeries, weights) {
   }
   return out
 }
+
+// ---------------------------------------------------------------------------
+// Operating-state + distance/velocity-to-trip
+// ---------------------------------------------------------------------------
+
+// classify Stopped/Starting/Running/Coasting from a short recent tail of a
+// driver sensor's raw values (oldest -> newest). Needs at least 1 point;
+// with 2+ it can tell Starting from Coasting by direction.
+export function runStateOf(tailValues, baseline) {
+  if (!tailValues || !tailValues.length || !baseline) return 'running'
+  const v = tailValues[tailValues.length - 1]
+  const frac = v / baseline
+  if (frac < 0.15) return 'stopped'
+  if (frac < 0.85) {
+    const prev = tailValues.length > 1 ? tailValues[tailValues.length - 2] : v
+    return v >= prev ? 'starting' : 'coasting'
+  }
+  return 'running'
+}
+
+export const RUN_STATE_LABEL = { stopped: 'Stopped', starting: 'Starting', running: 'Running', coasting: 'Coasting' }
+
+// raw-unit headroom to the protection trip limit (null if the sensor has no real trip limit)
+export function distanceToTrip(value, tripLimit) {
+  if (tripLimit == null || tripLimit > 9990) return null
+  return tripLimit - value
+}
+
+// simple least-squares slope (per day) over a tail of {ts, v} points (ts = epoch seconds)
+export function velocityPerDay(points) {
+  if (!points || points.length < 2) return null
+  const n = points.length
+  const tMean = points.reduce((a, p) => a + p.ts, 0) / n
+  const vMean = points.reduce((a, p) => a + p.v, 0) / n
+  let num = 0, den = 0
+  for (const p of points) {
+    const dt = p.ts - tMean
+    num += dt * (p.v - vMean)
+    den += dt * dt
+  }
+  if (den === 0) return null
+  return (num / den) * 86400
+}
+
+// rough days-to-trip at the current rate; null if not trending toward trip
+export function etaToTrip(value, tripLimit, perDay) {
+  if (tripLimit == null || tripLimit > 9990 || !perDay || perDay <= 0) return null
+  const dist = tripLimit - value
+  if (dist <= 0) return 0
+  return dist / perDay
+}

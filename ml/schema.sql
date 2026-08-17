@@ -26,11 +26,12 @@ CREATE TABLE system (
 );
 
 CREATE TABLE equipment (
-    id        TEXT PRIMARY KEY,     -- e.g. 'MUN-U1-BLR-FD_FAN-1'
-    system_id TEXT NOT NULL REFERENCES system(id),
-    type      TEXT NOT NULL,        -- 'FD_FAN'
-    name      TEXT NOT NULL,        -- 'FD Fan 1'
-    showcase  INTEGER DEFAULT 0
+    id          TEXT PRIMARY KEY,   -- e.g. 'MUN-U1-BLR-FD_FAN-1'
+    system_id   TEXT NOT NULL REFERENCES system(id),
+    type        TEXT NOT NULL,      -- 'FD_FAN'
+    name        TEXT NOT NULL,      -- 'FD Fan 1'
+    showcase    INTEGER DEFAULT 0,
+    driver_skey TEXT                -- sensor skey used to derive run-state
 );
 
 CREATE TABLE sensor (
@@ -40,7 +41,8 @@ CREATE TABLE sensor (
     label        TEXT NOT NULL,     -- 'NDE Vibration X'
     unit         TEXT,              -- 'mm/s'
     baseline     REAL,              -- normal value (health = 100 here)
-    healthy_max  REAL               -- soft limit (health = 0 here)
+    healthy_max  REAL,              -- ALERT limit, ours (health = 0 here)
+    trip_limit   REAL               -- PROTECTION limit, hard (never "ours")
 );
 
 -- time-series readings (compact: integer fks + epoch seconds)

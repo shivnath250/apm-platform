@@ -45,8 +45,8 @@ export default function PlantPage({ plant, healthByEquip, onSelectEquip, onBack 
         <div className="empty-hint">No critical equipment in this plant — everything is healthy.</div>
       ) : (
         <div className="equip-grid">
-          {shown.map((e) => (
-            <div key={e.id} className={`equip-card ${e.status}`} onClick={() => onSelectEquip(e.id)}>
+          {shown.map((e, i) => (
+            <div key={e.id} className={`equip-card ${e.status}`} style={{ animationDelay: `${Math.min(i * 0.03, 0.4)}s` }} onClick={() => onSelectEquip(e.id)}>
               <div className={`equip-ico ${e.status}-t`}><EquipmentIcon type={e.type} /></div>
               <div className="equip-meta">
                 <div className="equip-name">{e.name}</div>

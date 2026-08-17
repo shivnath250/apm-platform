@@ -68,10 +68,22 @@ def task1_bounds(con):
     target = f[EXAMPLE_SENSOR]
     y = np.array(target["val"])
 
+    # exclude non-running readings (stop/start cycles) from the fit -- otherwise
+    # the regression is contaminated by idle-floor values that have nothing to
+    # do with load, which isn't a fair test of "does this model track load".
+    driver_skey = fetch(con, "SELECT driver_skey FROM equipment WHERE id = ?",
+                        (EXAMPLE_EQUIP,))[0]["driver_skey"]
+    driver = f[driver_skey]
+    running = np.array(driver["val"]) >= 0.85 * driver["baseline"]
+
     n = len(y)
     healthy_n = int(n * 0.33)              # first third is before the fault ramp
-    Xh = load[:healthy_n].reshape(-1, 1)
-    yh = y[:healthy_n]
+    healthy_mask = np.zeros(n, dtype=bool)
+    healthy_mask[:healthy_n] = True
+    healthy_mask &= running
+
+    Xh = load[healthy_mask].reshape(-1, 1)
+    yh = y[healthy_mask]
 
     # fair predictor quality: split the HEALTHY data
     Xtr, Xte, ytr, yte = train_test_split(Xh, yh, test_size=0.3, random_state=42)

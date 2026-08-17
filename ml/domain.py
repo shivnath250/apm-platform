@@ -48,59 +48,69 @@ PLANTS = [
 #      slope        how much it moves per +1% load  (this is what lets the
 #                   ML model learn "smart bounds" that adapt to load)
 #      noise        random std-dev of normal scatter
-#      healthy_max  soft limit; above this the sensor is degrading
+#      healthy_max  ALERT limit (ours, tunable) -- health score = 0 here
+#      trip_limit   PROTECTION limit (hard, never "owned" by us) -- always
+#                   further out than healthy_max; used for distance/velocity
 #      weight       importance in the equipment health score (0 = context only)
+#      shape_with_run  if False, sensor ignores equipment run-state (e.g. a
+#                   sealed gas fill that doesn't drop to zero when stopped).
+#                   Defaults to True.
 # ---------------------------------------------------------------------------
 _FAN_SENSORS = [
-    {"key": "mtr_nde_brg_temp", "label": "Motor NDE Bearing Temp", "unit": "degC", "baseline": 65, "slope": 0.25, "noise": 1.2, "healthy_max": 85,  "weight": 1.2},
-    {"key": "mtr_de_brg_temp",  "label": "Motor DE Bearing Temp",  "unit": "degC", "baseline": 62, "slope": 0.22, "noise": 1.2, "healthy_max": 85,  "weight": 1.2},
-    {"key": "nde_vib_x",        "label": "NDE Vibration X",        "unit": "mm/s", "baseline": 2.2, "slope": 0.015, "noise": 0.25, "healthy_max": 4.5, "weight": 1.5},
-    {"key": "nde_vib_y",        "label": "NDE Vibration Y",        "unit": "mm/s", "baseline": 2.0, "slope": 0.014, "noise": 0.25, "healthy_max": 4.5, "weight": 1.5},
-    {"key": "motor_current",    "label": "Motor Current",          "unit": "A",    "baseline": 180, "slope": 1.6,  "noise": 4.0, "healthy_max": 215, "weight": 1.0},
-    {"key": "winding_temp",     "label": "Winding Temp",           "unit": "degC", "baseline": 78, "slope": 0.30, "noise": 1.5, "healthy_max": 105, "weight": 1.0},
+    {"key": "mtr_nde_brg_temp", "label": "Motor NDE Bearing Temp", "unit": "degC", "baseline": 65, "slope": 0.25, "noise": 1.2, "healthy_max": 85,  "trip_limit": 100,  "weight": 1.2},
+    {"key": "mtr_de_brg_temp",  "label": "Motor DE Bearing Temp",  "unit": "degC", "baseline": 62, "slope": 0.22, "noise": 1.2, "healthy_max": 85,  "trip_limit": 100,  "weight": 1.2},
+    {"key": "nde_vib_x",        "label": "NDE Vibration X",        "unit": "mm/s", "baseline": 2.2, "slope": 0.015, "noise": 0.25, "healthy_max": 4.5, "trip_limit": 7.1, "weight": 1.5},
+    {"key": "nde_vib_y",        "label": "NDE Vibration Y",        "unit": "mm/s", "baseline": 2.0, "slope": 0.014, "noise": 0.25, "healthy_max": 4.5, "trip_limit": 7.1, "weight": 1.5},
+    {"key": "motor_current",    "label": "Motor Current",          "unit": "A",    "baseline": 180, "slope": 1.6,  "noise": 4.0, "healthy_max": 215, "trip_limit": 250,  "weight": 1.0},
+    {"key": "winding_temp",     "label": "Winding Temp",           "unit": "degC", "baseline": 78, "slope": 0.30, "noise": 1.5, "healthy_max": 105, "trip_limit": 130,  "weight": 1.0},
 ]
 
 _PUMP_SENSORS = [
-    {"key": "de_brg_temp",   "label": "DE Bearing Temp",  "unit": "degC", "baseline": 60, "slope": 0.20, "noise": 1.0, "healthy_max": 82,  "weight": 1.2},
-    {"key": "nde_brg_temp",  "label": "NDE Bearing Temp", "unit": "degC", "baseline": 58, "slope": 0.20, "noise": 1.0, "healthy_max": 82,  "weight": 1.2},
-    {"key": "vib_x",         "label": "Vibration X",      "unit": "mm/s", "baseline": 1.8, "slope": 0.012, "noise": 0.20, "healthy_max": 4.0, "weight": 1.5},
-    {"key": "motor_current", "label": "Motor Current",    "unit": "A",    "baseline": 220, "slope": 1.8,  "noise": 5.0, "healthy_max": 260, "weight": 1.0},
-    {"key": "disch_press",   "label": "Discharge Press",  "unit": "bar",  "baseline": 180, "slope": 0.40, "noise": 2.0, "healthy_max": 999, "weight": 0.0},
-    {"key": "flow",          "label": "Flow",             "unit": "t/h",  "baseline": 1200, "slope": 6.0, "noise": 20.0, "healthy_max": 9999, "weight": 0.0},
+    {"key": "de_brg_temp",   "label": "DE Bearing Temp",  "unit": "degC", "baseline": 60, "slope": 0.20, "noise": 1.0, "healthy_max": 82,  "trip_limit": 95,   "weight": 1.2},
+    {"key": "nde_brg_temp",  "label": "NDE Bearing Temp", "unit": "degC", "baseline": 58, "slope": 0.20, "noise": 1.0, "healthy_max": 82,  "trip_limit": 95,   "weight": 1.2},
+    {"key": "vib_x",         "label": "Vibration X",      "unit": "mm/s", "baseline": 1.8, "slope": 0.012, "noise": 0.20, "healthy_max": 4.0, "trip_limit": 6.3, "weight": 1.5},
+    {"key": "motor_current", "label": "Motor Current",    "unit": "A",    "baseline": 220, "slope": 1.8,  "noise": 5.0, "healthy_max": 260, "trip_limit": 300,  "weight": 1.0},
+    {"key": "disch_press",   "label": "Discharge Press",  "unit": "bar",  "baseline": 180, "slope": 0.40, "noise": 2.0, "healthy_max": 999, "trip_limit": 999, "weight": 0.0},
+    {"key": "flow",          "label": "Flow",             "unit": "t/h",  "baseline": 1200, "slope": 6.0, "noise": 20.0, "healthy_max": 9999, "trip_limit": 9999, "weight": 0.0},
 ]
 
 _MILL_SENSORS = [
-    {"key": "motor_current", "label": "Motor Current", "unit": "A",    "baseline": 90, "slope": 0.8,  "noise": 3.0, "healthy_max": 120, "weight": 1.0},
-    {"key": "gearbox_temp",  "label": "Gearbox Temp",  "unit": "degC", "baseline": 70, "slope": 0.25, "noise": 1.5, "healthy_max": 95,  "weight": 1.3},
-    {"key": "vib",           "label": "Vibration",     "unit": "mm/s", "baseline": 3.0, "slope": 0.02, "noise": 0.30, "healthy_max": 6.0, "weight": 1.5},
-    {"key": "outlet_temp",   "label": "Outlet Temp",   "unit": "degC", "baseline": 80, "slope": 0.30, "noise": 2.0, "healthy_max": 110, "weight": 0.8},
+    {"key": "motor_current", "label": "Motor Current", "unit": "A",    "baseline": 90, "slope": 0.8,  "noise": 3.0, "healthy_max": 120, "trip_limit": 140,  "weight": 1.0},
+    {"key": "gearbox_temp",  "label": "Gearbox Temp",  "unit": "degC", "baseline": 70, "slope": 0.25, "noise": 1.5, "healthy_max": 95,  "trip_limit": 115,  "weight": 1.3},
+    {"key": "vib",           "label": "Vibration",     "unit": "mm/s", "baseline": 3.0, "slope": 0.02, "noise": 0.30, "healthy_max": 6.0, "trip_limit": 9.5, "weight": 1.5},
+    {"key": "outlet_temp",   "label": "Outlet Temp",   "unit": "degC", "baseline": 80, "slope": 0.30, "noise": 2.0, "healthy_max": 110, "trip_limit": 130,  "weight": 0.8},
 ]
 
 _TURBINE_SENSORS = [
-    {"key": "brg1_temp",   "label": "Bearing 1 Temp", "unit": "degC", "baseline": 95, "slope": 0.15, "noise": 1.0, "healthy_max": 115, "weight": 1.3},
-    {"key": "brg2_temp",   "label": "Bearing 2 Temp", "unit": "degC", "baseline": 96, "slope": 0.15, "noise": 1.0, "healthy_max": 115, "weight": 1.3},
-    {"key": "axial_shift", "label": "Axial Shift",    "unit": "mm",   "baseline": 0.20, "slope": 0.001, "noise": 0.02, "healthy_max": 0.60, "weight": 1.4},
-    {"key": "vib",         "label": "Shaft Vibration","unit": "um",   "baseline": 30, "slope": 0.05, "noise": 3.0, "healthy_max": 75,  "weight": 1.5},
-    {"key": "speed",       "label": "Speed",          "unit": "rpm",  "baseline": 3000, "slope": 0.0, "noise": 2.0, "healthy_max": 9999, "weight": 0.0},
+    {"key": "brg1_temp",   "label": "Bearing 1 Temp", "unit": "degC", "baseline": 95, "slope": 0.15, "noise": 1.0, "healthy_max": 115, "trip_limit": 130,  "weight": 1.3},
+    {"key": "brg2_temp",   "label": "Bearing 2 Temp", "unit": "degC", "baseline": 96, "slope": 0.15, "noise": 1.0, "healthy_max": 115, "trip_limit": 130,  "weight": 1.3},
+    {"key": "axial_shift", "label": "Axial Shift",    "unit": "mm",   "baseline": 0.20, "slope": 0.001, "noise": 0.02, "healthy_max": 0.60, "trip_limit": 1.00, "weight": 1.4},
+    {"key": "vib",         "label": "Shaft Vibration","unit": "um",   "baseline": 30, "slope": 0.05, "noise": 3.0, "healthy_max": 75,  "trip_limit": 125,  "weight": 1.5},
+    {"key": "speed",       "label": "Speed",          "unit": "rpm",  "baseline": 3000, "slope": 0.0, "noise": 2.0, "healthy_max": 9999, "trip_limit": 9999, "weight": 0.0},
 ]
 
 _GEN_SENSORS = [
-    {"key": "stator_temp",  "label": "Stator Temp",  "unit": "degC", "baseline": 90, "slope": 0.30, "noise": 1.5, "healthy_max": 120, "weight": 1.2},
-    {"key": "winding_temp", "label": "Winding Temp", "unit": "degC", "baseline": 92, "slope": 0.30, "noise": 1.5, "healthy_max": 120, "weight": 1.2},
-    {"key": "vib",          "label": "Vibration",    "unit": "um",   "baseline": 28, "slope": 0.05, "noise": 3.0, "healthy_max": 70,  "weight": 1.5},
-    {"key": "h2_pressure",  "label": "H2 Pressure",  "unit": "bar",  "baseline": 3.5, "slope": 0.0, "noise": 0.05, "healthy_max": 9999, "weight": 0.0},
+    {"key": "stator_temp",  "label": "Stator Temp",  "unit": "degC", "baseline": 90, "slope": 0.30, "noise": 1.5, "healthy_max": 120, "trip_limit": 140,  "weight": 1.2},
+    {"key": "winding_temp", "label": "Winding Temp", "unit": "degC", "baseline": 92, "slope": 0.30, "noise": 1.5, "healthy_max": 120, "trip_limit": 140,  "weight": 1.2},
+    {"key": "vib",          "label": "Vibration",    "unit": "um",   "baseline": 28, "slope": 0.05, "noise": 3.0, "healthy_max": 70,  "trip_limit": 115,  "weight": 1.5},
+    {"key": "h2_pressure",  "label": "H2 Pressure",  "unit": "bar",  "baseline": 3.5, "slope": 0.0, "noise": 0.05, "healthy_max": 9999, "trip_limit": 9999, "weight": 0.0, "shape_with_run": False},
 ]
 
+# driver_key: the sensor that indicates whether this equipment is running
+#             (used to derive run-state Stopped/Starting/Running/Coasting).
+# cycle:      "aux" = frequent short stop/start (standby/redundant units like
+#             fans, mills, pumps); "tg" = rare single outage, shared by the
+#             turbine+generator on the same shaft/unit.
 EQUIPMENT_TEMPLATES = {
-    "FD_FAN":    {"label": "FD Fan",            "sensors": _FAN_SENSORS},
-    "ID_FAN":    {"label": "ID Fan",            "sensors": _FAN_SENSORS},
-    "PA_FAN":    {"label": "PA Fan",            "sensors": _FAN_SENSORS},
-    "MILL":      {"label": "Coal Mill",         "sensors": _MILL_SENSORS},
-    "BFP":       {"label": "Boiler Feed Pump",  "sensors": _PUMP_SENSORS},
-    "CW_PUMP":   {"label": "CW Pump",           "sensors": _PUMP_SENSORS},
-    "CEP":       {"label": "Condensate Pump",   "sensors": _PUMP_SENSORS},
-    "TURBINE":   {"label": "Steam Turbine",     "sensors": _TURBINE_SENSORS},
-    "GENERATOR": {"label": "Generator",         "sensors": _GEN_SENSORS},
+    "FD_FAN":    {"label": "FD Fan",            "sensors": _FAN_SENSORS,     "driver_key": "motor_current", "cycle": "aux"},
+    "ID_FAN":    {"label": "ID Fan",            "sensors": _FAN_SENSORS,     "driver_key": "motor_current", "cycle": "aux"},
+    "PA_FAN":    {"label": "PA Fan",            "sensors": _FAN_SENSORS,     "driver_key": "motor_current", "cycle": "aux"},
+    "MILL":      {"label": "Coal Mill",         "sensors": _MILL_SENSORS,    "driver_key": "motor_current", "cycle": "aux"},
+    "BFP":       {"label": "Boiler Feed Pump",  "sensors": _PUMP_SENSORS,    "driver_key": "motor_current", "cycle": "aux"},
+    "CW_PUMP":   {"label": "CW Pump",           "sensors": _PUMP_SENSORS,    "driver_key": "motor_current", "cycle": "aux"},
+    "CEP":       {"label": "Condensate Pump",   "sensors": _PUMP_SENSORS,    "driver_key": "motor_current", "cycle": "aux"},
+    "TURBINE":   {"label": "Steam Turbine",     "sensors": _TURBINE_SENSORS, "driver_key": "speed",         "cycle": "tg"},
+    "GENERATOR": {"label": "Generator",         "sensors": _GEN_SENSORS,     "driver_key": "vib",           "cycle": "tg"},
 }
 
 # ---------------------------------------------------------------------------

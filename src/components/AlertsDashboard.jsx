@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
-import { statusOf, worstSensor } from '../health.js'
+import { statusOf, worstSensor, RUN_STATE_LABEL } from '../health.js'
 import EquipmentIcon from './EquipmentIcon.jsx'
 
-function buildRows(tree, latest, weightsByPlant, healthByEquip) {
+function buildRows(tree, latest, weightsByPlant, healthByEquip, runStateByEquip) {
   const rows = []
   for (const p of tree)
     for (const u of p.units)
@@ -13,7 +13,8 @@ function buildRows(tree, latest, weightsByPlant, healthByEquip) {
           if (st === 'healthy') continue
           const w = weightsByPlant[p.id] || {}
           const worst = worstSensor(latest[e.id] || [], w)
-          rows.push({ eid: e.id, name: e.name, type: e.type, plant: p.name, plantId: p.id, unit: u.name, system: s.name, health: h, status: st, worst })
+          const runState = runStateByEquip?.[e.id] || 'running'
+          rows.push({ eid: e.id, name: e.name, type: e.type, plant: p.name, plantId: p.id, unit: u.name, system: s.name, health: h, status: st, worst, runState })
         }
   return rows.sort((a, b) => a.health - b.health)
 }
@@ -22,11 +23,11 @@ function Table({ rows, onSelectEquip, onSelectPlant }) {
   if (!rows.length) return <div className="empty-hint">Nothing here right now — all clear.</div>
   return (
     <div className="alert-table">
-      {rows.map((r) => (
-        <div key={r.eid} className={`alert-row ${r.status}`} onClick={() => onSelectEquip(r.eid)}>
+      {rows.map((r, i) => (
+        <div key={r.eid} className={`alert-row ${r.status}`} style={{ animationDelay: `${Math.min(i * 0.03, 0.4)}s` }} onClick={() => onSelectEquip(r.eid)}>
           <span className={`alert-ico ${r.status}-t`}><EquipmentIcon type={r.type} size={30} /></span>
           <div className="alert-main">
-            <div className="alert-name">{r.name}</div>
+            <div className="alert-name">{r.name}{r.runState !== 'running' && <span className={`run-badge ${r.runState}`} style={{ marginLeft: 8 }}>{RUN_STATE_LABEL[r.runState]}</span>}</div>
             <div className="alert-path">
               <span className="plink" onClick={(ev) => { ev.stopPropagation(); onSelectPlant(r.plantId) }}>{r.plant}</span> · {r.unit} · {r.system}
             </div>
@@ -41,8 +42,11 @@ function Table({ rows, onSelectEquip, onSelectPlant }) {
   )
 }
 
-export default function AlertsDashboard({ tree, latest, weightsByPlant, healthByEquip, filter, onFilter, onSelectEquip, onSelectPlant }) {
-  const rows = useMemo(() => buildRows(tree, latest, weightsByPlant, healthByEquip), [tree, latest, weightsByPlant, healthByEquip])
+export default function AlertsDashboard({ tree, latest, weightsByPlant, healthByEquip, runStateByEquip, filter, onFilter, onSelectEquip, onSelectPlant }) {
+  const allRows = useMemo(() => buildRows(tree, latest, weightsByPlant, healthByEquip, runStateByEquip), [tree, latest, weightsByPlant, healthByEquip, runStateByEquip])
+  const isMasked = (r) => r.runState === 'starting' || r.runState === 'stopped'
+  const rows = allRows.filter((r) => !isMasked(r))
+  const masked = allRows.filter(isMasked)
   const alarms = rows.filter((r) => r.status === 'alarm')
   const warnings = rows.filter((r) => r.status === 'warning')
 
@@ -65,6 +69,10 @@ export default function AlertsDashboard({ tree, latest, weightsByPlant, healthBy
       {(filter === 'all' || filter === 'warning') && (<>
         <div className="section-title" style={{ marginTop: 26 }}><span className="dot warning" /> Alert dashboard · {warnings.length} warnings</div>
         <Table rows={warnings} onSelectEquip={onSelectEquip} onSelectPlant={onSelectPlant} />
+      </>)}
+      {masked.length > 0 && (<>
+        <div className="section-title" style={{ marginTop: 26 }}>Masked · {masked.length} starting up / shutting down (not real alarms)</div>
+        <Table rows={masked} onSelectEquip={onSelectEquip} onSelectPlant={onSelectPlant} />
       </>)}
     </div>
   )

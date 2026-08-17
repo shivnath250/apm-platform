@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { openDb, query } from './db.js'
-import { equipmentHealth, statusOf, avg, worstSensor } from './health.js'
+import { equipmentHealth, statusOf, avg, worstSensor, runStateOf } from './health.js'
 import { initLive, stepLive, snapshot, startScenario } from './liveFeed.js'
 import Sidebar from './components/Sidebar.jsx'
 import AlertsDashboard from './components/AlertsDashboard.jsx'
@@ -12,6 +12,12 @@ import EventTicker from './components/EventTicker.jsx'
 
 const plantOf = (eid) => eid.split('-')[0]
 const rank = { healthy: 0, warning: 1, alarm: 2 }
+const runStateFor = (sensors, driverSkey) => {
+  if (!sensors || !driverSkey) return 'running'
+  const s = sensors.find((x) => x.skey === driverSkey)
+  if (!s) return 'running'
+  return runStateOf(s.hist || [s.value], s.baseline)
+}
 const clockStr = (ts) => {
   const d = new Date(ts * 1000); const z = (n) => String(n).padStart(2, '0')
   return `${z(d.getDate())} ${d.toLocaleString('en', { month: 'short' })} ${z(d.getHours())}:${z(d.getMinutes())}`
@@ -49,22 +55,22 @@ export default function App() {
       setDb(database)
       const rows = query(database, `
         SELECT p.id pid, p.name pname, p.state, p.capacity_mw, u.id uid, u.name uname,
-               sy.id sid, sy.name sname, e.id eid, e.name ename, e.type etype, e.showcase
+               sy.id sid, sy.name sname, e.id eid, e.name ename, e.type etype, e.showcase, e.driver_skey
         FROM plant p JOIN unit u ON u.plant_id = p.id JOIN system sy ON sy.unit_id = u.id
         JOIN equipment e ON e.system_id = sy.id ORDER BY p.id, u.id, sy.id, e.id`)
       const builtTree = buildTree(rows)
       setTree(builtTree)
       const info = {}
       for (const p of builtTree) for (const u of p.units) for (const s of u.systems) for (const e of s.equipment)
-        info[e.id] = { name: e.name, plant: p.name }
+        info[e.id] = { name: e.name, plant: p.name, driverSkey: e.driver_skey }
       eidInfo.current = info
 
       const snap = query(database, `
-        SELECT s.equipment_id eid, s.skey, s.label, s.unit, s.baseline, s.healthy_max hmax, r.value
+        SELECT s.equipment_id eid, s.skey, s.label, s.unit, s.baseline, s.healthy_max hmax, s.trip_limit tlim, r.value
         FROM sensor s JOIN reading r ON r.sensor_id = s.id WHERE r.ts = (SELECT MAX(ts) FROM reading)`)
       const maxTs = query(database, `SELECT MAX(ts) m FROM reading`)[0].m
       const byEquip = {}
-      for (const r of snap) (byEquip[r.eid] ||= []).push({ skey: r.skey, label: r.label, unit: r.unit, value: r.value, baseline: r.baseline, healthy_max: r.hmax })
+      for (const r of snap) (byEquip[r.eid] ||= []).push({ skey: r.skey, label: r.label, unit: r.unit, value: r.value, baseline: r.baseline, healthy_max: r.hmax, trip_limit: r.tlim })
       setLiveLatest(byEquip)
       liveRef.current = initLive(byEquip)
       setVirtualTs(maxTs + 1800)
@@ -83,10 +89,27 @@ export default function App() {
     return m
   }, [liveLatest, weightsByPlant])
 
+  const runStateByEquip = useMemo(() => {
+    const m = {}
+    for (const [eid, sensors] of Object.entries(liveLatest)) m[eid] = runStateFor(sensors, eidInfo.current[eid]?.driverSkey)
+    return m
+  }, [liveLatest])
+
   const fleetStats = useMemo(() => {
     const vals = Object.values(healthByEquip)
-    return { total: vals.length, alarms: vals.filter((h) => statusOf(h) === 'alarm').length, warns: vals.filter((h) => statusOf(h) === 'warning').length, health: avg(vals) }
-  }, [healthByEquip])
+    // masked (starting/stopped) equipment doesn't count toward alarm/warning totals -- it's
+    // not a real problem, just startup/shutdown transients
+    const unmasked = Object.entries(healthByEquip).filter(([eid]) => {
+      const rs = runStateByEquip[eid]
+      return rs !== 'starting' && rs !== 'stopped'
+    }).map(([, h]) => h)
+    return {
+      total: vals.length,
+      alarms: unmasked.filter((h) => statusOf(h) === 'alarm').length,
+      warns: unmasked.filter((h) => statusOf(h) === 'warning').length,
+      health: avg(vals),
+    }
+  }, [healthByEquip, runStateByEquip])
 
   // the live loop
   useEffect(() => {
@@ -101,7 +124,9 @@ export default function App() {
         const w = weightsByPlant[plantOf(eid)] || {}
         const st = statusOf(equipmentHealth(snap[eid], w))
         const prev = prevStatus.current[eid]
-        if (prev && prev !== st && rank[st] > rank[prev]) {
+        const rs = runStateFor(snap[eid], eidInfo.current[eid]?.driverSkey)
+        const masked = rs === 'starting' || rs === 'stopped'
+        if (prev && prev !== st && rank[st] > rank[prev] && !masked) {
           const ws = worstSensor(snap[eid], w)
           newEvents.push({ ts: nextTs, eid, level: st, text: `${eidInfo.current[eid]?.name || eid} (${eidInfo.current[eid]?.plant}) entered ${st.toUpperCase()}${ws ? ` · ${ws.label} ${ws.value.toFixed(1)}` : ''}` })
         }
@@ -164,8 +189,8 @@ export default function App() {
         <div className="fleet-stat">
           <b className={statusOf(fleetStats.health) + '-t'}>{fleetStats.health.toFixed(0)}%</b>
         </div>
-        <button className="stat-btn alarm" onClick={() => goHome('alarm')}><span className="dot alarm" /> <b>{fleetStats.alarms}</b></button>
-        <button className="stat-btn warning" onClick={() => goHome('warning')}><span className="dot warning" /> <b>{fleetStats.warns}</b></button>
+        <button className="stat-btn alarm" onClick={() => goHome('alarm')}><span className="dot alarm" /> <b>{fleetStats.alarms}</b> <span className="stat-lbl">Alarms</span></button>
+        <button className="stat-btn warning" onClick={() => goHome('warning')}><span className="dot warning" /> <b>{fleetStats.warns}</b> <span className="stat-lbl">Warnings</span></button>
         <button className={`btn ${nav.view === 'modellab' ? 'btn-on' : ''}`} onClick={goModelLab}>🧪 Model Lab</button>
         <button className="btn" onClick={() => setShowWeights(true)}>⚙ Weights</button>
       </div>
@@ -176,7 +201,8 @@ export default function App() {
           {nav.view === 'equipment' && (
             <EquipmentDetail db={db} eid={nav.eid} weights={weightsByPlant[plantOf(nav.eid)] || {}} tree={tree}
               onBack={() => goHome('all')} onBackPlant={goPlant}
-              liveTickId={tickId} liveSensors={liveLatest[nav.eid]} liveTs={virtualTs} liveOn={liveOn} />
+              liveTickId={tickId} liveSensors={liveLatest[nav.eid]} liveTs={virtualTs} liveOn={liveOn}
+              driverSkey={eidInfo.current[nav.eid]?.driverSkey} runState={runStateByEquip[nav.eid]} />
           )}
           {nav.view === 'plant' && (
             <PlantPage plant={tree.find((p) => p.id === nav.plantId)} healthByEquip={healthByEquip} onSelectEquip={goEquip} onBack={() => goHome('all')} />
@@ -184,6 +210,7 @@ export default function App() {
           {nav.view === 'modellab' && <ModelLab db={db} />}
           {nav.view === 'home' && (
             <AlertsDashboard tree={tree} latest={liveLatest} weightsByPlant={weightsByPlant} healthByEquip={healthByEquip}
+              runStateByEquip={runStateByEquip}
               filter={nav.filter} onFilter={setFilter} onSelectEquip={goEquip} onSelectPlant={goPlant} />
           )}
         </div>
@@ -208,7 +235,7 @@ function buildTree(rows) {
     if (!u) { u = { id: r.uid, name: r.uname, eids: [], systems: new Map() }; p.units.set(r.uid, u) }
     let s = u.systems.get(r.sid)
     if (!s) { s = { id: r.sid, name: r.sname, eids: [], equipment: [] }; u.systems.set(r.sid, s) }
-    s.equipment.push({ id: r.eid, name: r.ename, type: r.etype, showcase: r.showcase })
+    s.equipment.push({ id: r.eid, name: r.ename, type: r.etype, showcase: r.showcase, driver_skey: r.driver_skey })
     p.eids.push(r.eid); u.eids.push(r.eid); s.eids.push(r.eid)
   }
   const toArr = (m) => [...m.values()]

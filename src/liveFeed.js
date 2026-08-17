@@ -16,14 +16,17 @@ export function noiseFor(s) {
   return Math.max(1e-6, 0.02 * span)
 }
 
+const HIST_LEN = 4 // recent-values tail kept per sensor, for run-state direction
+
 // build the mutable live state from the initial snapshot
 export function initLive(latest) {
   const equip = {}
   for (const [eid, sensors] of Object.entries(latest)) {
     equip[eid] = sensors.map((s) => ({
       skey: s.skey, label: s.label, unit: s.unit,
-      baseline: s.baseline, healthy_max: s.healthy_max,
+      baseline: s.baseline, healthy_max: s.healthy_max, trip_limit: s.trip_limit,
       value: s.value, center: s.value, drift: 0, noise: noiseFor(s),
+      hist: [s.value],
     }))
   }
   return equip
@@ -35,6 +38,8 @@ export function stepLive(equip) {
     for (const s of equip[eid]) {
       if (s.drift) s.center += s.drift
       s.value = s.value + 0.5 * (s.center - s.value) + s.noise * randn()
+      s.hist.push(s.value)
+      if (s.hist.length > HIST_LEN) s.hist.shift()
     }
   }
 }
@@ -46,6 +51,7 @@ export function snapshot(equip) {
     out[eid] = equip[eid].map((s) => ({
       skey: s.skey, label: s.label, unit: s.unit,
       value: s.value, baseline: s.baseline, healthy_max: s.healthy_max,
+      trip_limit: s.trip_limit, hist: s.hist,
     }))
   }
   return out
