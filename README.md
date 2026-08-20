@@ -7,6 +7,20 @@ equipment health scores, and contextual sensor charts. Built as a
 portfolio/interview project around rotating-equipment condition monitoring
 (FD/ID fans, mills, boiler feed pumps, turbines, generators).
 
+**Live:** https://shivnath250.github.io/apm-platform/
+
+## Part of a two-module platform
+This is the **Condition Monitoring** module of an "Operations Excellence Platform". It is embedded
+inside — and cross-linked from — the **Performance & Issue Management** app (PPMS), which surfaces
+this fleet's health highlights on its dashboard.
+PPMS live: https://shivnath250.github.io/ppms/ · Repo: https://github.com/shivnath250/ppms
+
+## Recent additions
+Beyond the base below: **operating-state awareness** (Stopped/Starting/Running/Coasting with startup
+alarm masking), **distance/velocity-to-trip** (a protection `trip_limit` distinct from the alert
+limit), **retrained ML**, a **simulated in-browser live feed** (pulsing LIVE badge, virtual clock,
+event ticker, fault-scenario injection), and a **"Mission Control" visual redesign**.
+
 ## Architecture (two layers)
 
 **1. Data + brain — Python (`/ml`)**
