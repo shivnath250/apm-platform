@@ -458,9 +458,15 @@ code { font-family: var(--mono); font-size: 12px; background: rgba(34,230,214,0.
 .ticker-toggle { margin-left: auto; color: var(--muted); }
 .ticker-body { max-height: 220px; overflow-y: auto; }
 .ticker-empty { padding: 16px; font-size: 11px; color: var(--faint); font-family: var(--mono); line-height: 1.55; }
-.ticker-row { display: flex; align-items: center; gap: 10px; padding: 9px 16px; font-size: 11px; cursor: pointer; border-bottom: 1px solid var(--border-soft); transition: background .12s; }
+.ticker-row { display: flex; align-items: center; gap: 10px; padding: 9px 16px; font-size: 11px; cursor: pointer; border-bottom: 1px solid var(--border-soft); transition: background .12s; position: relative; }
 .ticker-row:hover { background: rgba(150,170,230,0.06); }
 .ticker-row.alarm { color: #ffb4bc; } .ticker-row.warning { color: #ffdf9e; }
+/* the equipment under an injected failure scenario — pinned + highlighted */
+.ticker-row.scenario { background: rgba(255,61,154,0.10); }
+.ticker-row.scenario::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--magenta, #ff3d9a); box-shadow: 0 0 10px var(--magenta, #ff3d9a); }
+.ticker-row.scenario:hover { background: rgba(255,61,154,0.18); }
+.scenario-flag { color: var(--magenta, #ff3d9a); }
+.ticker-count.alarm { margin-left: 6px; background: rgba(255,77,94,0.18); color: #ff9ca4; }
 .ticker-time { font-family: var(--mono); font-size: 10px; color: var(--faint); flex: none; font-variant-numeric: tabular-nums; }
 .ticker-text { line-height: 1.4; }
 

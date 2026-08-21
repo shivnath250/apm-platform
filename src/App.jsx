@@ -40,6 +40,7 @@ export default function App() {
   const [virtualTs, setVirtualTs] = useState(0)
   const [tickId, setTickId] = useState(0)
   const [events, setEvents] = useState([])
+  const [scenarioEid, setScenarioEid] = useState(null)   // equipment under an injected failure scenario
   const liveRef = useRef(null)
   const prevStatus = useRef({})
   const eidInfo = useRef({})
@@ -173,8 +174,8 @@ export default function App() {
     for (const eid in healthByEquip) if (healthByEquip[eid] > bestH) { bestH = healthByEquip[eid]; best = eid }
     if (!best) return
     startScenario(liveRef.current, best, weightsFor(best), 22)
-    setLiveOn(true); setSpeed(5); goEquip(best)
-    setEvents((ev) => [{ ts: virtualTsRef.current, eid: best, level: 'warning', text: `⚡ Fault scenario injected on ${eidInfo.current[best]?.name} (${eidInfo.current[best]?.plant}) — watch it degrade` }, ...ev].slice(0, 60))
+    setLiveOn(true); setSpeed(5); goEquip(best); setScenarioEid(best)
+    setEvents((ev) => [{ ts: virtualTsRef.current, eid: best, level: 'warning', scenario: true, text: `⚡ Fault scenario injected on ${eidInfo.current[best]?.name} (${eidInfo.current[best]?.plant}) — watch it degrade` }, ...ev].slice(0, 60))
   }
 
   if (err) return <div className="loader">Failed to load database<br />{err}</div>
@@ -235,7 +236,7 @@ export default function App() {
         </div>
       </div>
 
-      <EventTicker events={events} onSelectEquip={goEquip} />
+      <EventTicker events={events} onSelectEquip={goEquip} scenarioEid={scenarioEid} />
 
       {showWeights && (
         <WeightsPanel plants={tree.map((p) => ({ id: p.id, name: p.name }))} weightsByPlant={weightsByPlant}
