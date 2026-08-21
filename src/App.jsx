@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { openDb, query } from './db.js'
 import { equipmentHealth, statusOf, avg, worstSensor, runStateOf } from './health.js'
 import { initLive, stepLive, snapshot, startScenario } from './liveFeed.js'
@@ -28,6 +28,7 @@ export default function App() {
   const [tree, setTree] = useState([])
   const [liveLatest, setLiveLatest] = useState({})
   const [weightsByPlant, setWeightsByPlant] = useState({})
+  const [weightsByEquip, setWeightsByEquip] = useState({})   // per-equipment overrides (eid -> {skey: weight})
   const [defaults, setDefaults] = useState({ byPlant: {}, labels: {} })
   const [nav, setNav] = useState({ view: 'home', filter: 'all' })
   const [showWeights, setShowWeights] = useState(false)
@@ -83,17 +84,33 @@ export default function App() {
     }).catch((e) => setErr(String(e)))
   }, [])
 
+  // resolve the effective weights for an equipment: per-equipment override wins,
+  // otherwise fall back to the plant-level weights.
+  const weightsFor = useCallback(
+    (eid) => weightsByEquip[eid] || weightsByPlant[plantOf(eid)] || {},
+    [weightsByEquip, weightsByPlant])
+
   const healthByEquip = useMemo(() => {
     const m = {}
-    for (const [eid, sensors] of Object.entries(liveLatest)) m[eid] = equipmentHealth(sensors, weightsByPlant[plantOf(eid)] || {})
+    for (const [eid, sensors] of Object.entries(liveLatest)) m[eid] = equipmentHealth(sensors, weightsFor(eid))
     return m
-  }, [liveLatest, weightsByPlant])
+  }, [liveLatest, weightsFor])
 
   const runStateByEquip = useMemo(() => {
     const m = {}
     for (const [eid, sensors] of Object.entries(liveLatest)) m[eid] = runStateFor(sensors, eidInfo.current[eid]?.driverSkey)
     return m
   }, [liveLatest])
+
+  // flat index of every equipment + its scored sensor keys, for the per-equipment weights editor
+  const equipIndex = useMemo(() => {
+    const out = []
+    for (const p of tree) for (const u of p.units) for (const s of u.systems) for (const e of s.equipment) {
+      const skeys = (liveLatest[e.id] || []).map((x) => x.skey).filter((sk) => defaults.labels[sk])
+      out.push({ eid: e.id, plantId: p.id, plantName: p.name, name: e.name, label: `${u.name} · ${s.name} · ${e.name}`, skeys })
+    }
+    return out
+  }, [tree, liveLatest, defaults.labels])
 
   const fleetStats = useMemo(() => {
     const vals = Object.values(healthByEquip)
@@ -121,7 +138,7 @@ export default function App() {
       const newEvents = []
       const nextTs = virtualTsRef.current + 1800
       for (const eid in snap) {
-        const w = weightsByPlant[plantOf(eid)] || {}
+        const w = weightsFor(eid)
         const st = statusOf(equipmentHealth(snap[eid], w))
         const prev = prevStatus.current[eid]
         const rs = runStateFor(snap[eid], eidInfo.current[eid]?.driverSkey)
@@ -139,7 +156,7 @@ export default function App() {
       if (newEvents.length) setEvents((ev) => [...newEvents.reverse(), ...ev].slice(0, 60))
     }, interval)
     return () => clearInterval(id)
-  }, [liveOn, speed, db, weightsByPlant])
+  }, [liveOn, speed, db, weightsFor])
 
   // keep a ref of virtualTs so the interval closure sees the latest
   useEffect(() => { virtualTsRef.current = virtualTs }, [virtualTs])
@@ -155,7 +172,7 @@ export default function App() {
     let best = null, bestH = -1
     for (const eid in healthByEquip) if (healthByEquip[eid] > bestH) { bestH = healthByEquip[eid]; best = eid }
     if (!best) return
-    startScenario(liveRef.current, best, weightsByPlant[plantOf(best)] || {}, 22)
+    startScenario(liveRef.current, best, weightsFor(best), 22)
     setLiveOn(true); setSpeed(5); goEquip(best)
     setEvents((ev) => [{ ts: virtualTsRef.current, eid: best, level: 'warning', text: `⚡ Fault scenario injected on ${eidInfo.current[best]?.name} (${eidInfo.current[best]?.plant}) — watch it degrade` }, ...ev].slice(0, 60))
   }
@@ -193,13 +210,15 @@ export default function App() {
         <button className="stat-btn warning" onClick={() => goHome('warning')}><span className="dot warning" /> <b>{fleetStats.warns}</b> <span className="stat-lbl">Warnings</span></button>
         <button className={`btn ${nav.view === 'modellab' ? 'btn-on' : ''}`} onClick={goModelLab}>🧪 Model Lab</button>
         <button className="btn" onClick={() => setShowWeights(true)}>⚙ Weights</button>
+        <a className="btn portal-link" href="https://shivnath250.github.io/ppms/" target="_top"
+          title="Open the Performance & Issue Management portal">↗ PPMS Portal</a>
       </div>
 
       <div className="body">
         <Sidebar tree={tree} healthByEquip={healthByEquip} selected={nav.eid} onSelectEquip={goEquip} onSelectPlant={goPlant} />
         <div className="main">
           {nav.view === 'equipment' && (
-            <EquipmentDetail db={db} eid={nav.eid} weights={weightsByPlant[plantOf(nav.eid)] || {}} tree={tree}
+            <EquipmentDetail db={db} eid={nav.eid} weights={weightsFor(nav.eid)} tree={tree}
               onBack={() => goHome('all')} onBackPlant={goPlant}
               liveTickId={tickId} liveSensors={liveLatest[nav.eid]} liveTs={virtualTs} liveOn={liveOn}
               driverSkey={eidInfo.current[nav.eid]?.driverSkey} runState={runStateByEquip[nav.eid]} />
@@ -209,8 +228,8 @@ export default function App() {
           )}
           {nav.view === 'modellab' && <ModelLab db={db} />}
           {nav.view === 'home' && (
-            <AlertsDashboard tree={tree} latest={liveLatest} weightsByPlant={weightsByPlant} healthByEquip={healthByEquip}
-              runStateByEquip={runStateByEquip}
+            <AlertsDashboard tree={tree} latest={liveLatest} weightsByPlant={weightsByPlant} weightsByEquip={weightsByEquip}
+              healthByEquip={healthByEquip} runStateByEquip={runStateByEquip}
               filter={nav.filter} onFilter={setFilter} onSelectEquip={goEquip} onSelectPlant={goPlant} />
           )}
         </div>
@@ -220,7 +239,8 @@ export default function App() {
 
       {showWeights && (
         <WeightsPanel plants={tree.map((p) => ({ id: p.id, name: p.name }))} weightsByPlant={weightsByPlant}
-          defaults={defaults} onChange={setWeightsByPlant} onClose={() => setShowWeights(false)} />
+          weightsByEquip={weightsByEquip} equipIndex={equipIndex} defaults={defaults}
+          onChange={setWeightsByPlant} onChangeEquip={setWeightsByEquip} onClose={() => setShowWeights(false)} />
       )}
     </div>
   )

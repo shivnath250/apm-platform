@@ -391,6 +391,18 @@ body::after {
 .wrow .wval { font-family: var(--mono); color: var(--cyan-bright); font-variant-numeric: tabular-nums; }
 .wrow input[type=range] { width: 100%; accent-color: var(--cyan); }
 .panel-actions { display: flex; gap: 9px; margin-top: 22px; flex-wrap: wrap; }
+.panel-actions .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* weights: scope toggle (per plant / per equipment) */
+.scope-seg { display: flex; gap: 0; margin: 4px 0 16px; border: 1px solid var(--glass-brd, var(--border)); border-radius: var(--r-sm, 8px); overflow: hidden; }
+.scope-seg button { flex: 1; font-family: var(--mono); font-size: 12px; cursor: pointer; background: var(--panel-2); color: var(--muted); border: none; padding: 8px 10px; }
+.scope-seg button + button { border-left: 1px solid var(--border); }
+.scope-seg button.on { background: linear-gradient(135deg, var(--cyan, var(--accent)), var(--magenta, var(--accent-dim))); color: #04120f; font-weight: 700; }
+.override-tag { font-family: var(--mono); font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--magenta, var(--amber)); border: 1px solid var(--magenta, var(--amber)); border-radius: 10px; padding: 1px 7px; margin-left: 6px; }
+
+/* topbar link out to the PPMS portal */
+.portal-link { text-decoration: none; display: inline-flex; align-items: center; }
+.portal-link:hover { text-decoration: none; }
 
 /* model lab */
 .ml-task { margin-bottom: 20px; }

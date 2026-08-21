@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { statusOf, worstSensor, RUN_STATE_LABEL } from '../health.js'
 import EquipmentIcon from './EquipmentIcon.jsx'
 
-function buildRows(tree, latest, weightsByPlant, healthByEquip, runStateByEquip) {
+function buildRows(tree, latest, weightsByPlant, weightsByEquip, healthByEquip, runStateByEquip) {
   const rows = []
   for (const p of tree)
     for (const u of p.units)
@@ -11,7 +11,7 @@ function buildRows(tree, latest, weightsByPlant, healthByEquip, runStateByEquip)
           const h = healthByEquip[e.id] ?? 100
           const st = statusOf(h)
           if (st === 'healthy') continue
-          const w = weightsByPlant[p.id] || {}
+          const w = weightsByEquip?.[e.id] || weightsByPlant[p.id] || {}
           const worst = worstSensor(latest[e.id] || [], w)
           const runState = runStateByEquip?.[e.id] || 'running'
           rows.push({ eid: e.id, name: e.name, type: e.type, plant: p.name, plantId: p.id, unit: u.name, system: s.name, health: h, status: st, worst, runState })
@@ -42,8 +42,8 @@ function Table({ rows, onSelectEquip, onSelectPlant }) {
   )
 }
 
-export default function AlertsDashboard({ tree, latest, weightsByPlant, healthByEquip, runStateByEquip, filter, onFilter, onSelectEquip, onSelectPlant }) {
-  const allRows = useMemo(() => buildRows(tree, latest, weightsByPlant, healthByEquip, runStateByEquip), [tree, latest, weightsByPlant, healthByEquip, runStateByEquip])
+export default function AlertsDashboard({ tree, latest, weightsByPlant, weightsByEquip, healthByEquip, runStateByEquip, filter, onFilter, onSelectEquip, onSelectPlant }) {
+  const allRows = useMemo(() => buildRows(tree, latest, weightsByPlant, weightsByEquip, healthByEquip, runStateByEquip), [tree, latest, weightsByPlant, weightsByEquip, healthByEquip, runStateByEquip])
   const isMasked = (r) => r.runState === 'starting' || r.runState === 'stopped'
   const rows = allRows.filter((r) => !isMasked(r))
   const masked = allRows.filter(isMasked)
